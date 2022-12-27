@@ -1,6 +1,7 @@
 package linet
 
 import (
+	"errors"
 	"fmt"
 	"net"
 
@@ -12,6 +13,14 @@ type Server struct {
 	IPV  string
 	IP   string
 	Port int
+}
+
+func callBack(conn *net.TCPConn, buf []byte, n int) error {
+	if _, err := conn.Write(buf[:n]); err != nil {
+		fmt.Println("CallBack: Write err:", err)
+		return errors.New("CallBack error")
+	}
+	return nil
 }
 
 func (s *Server) Start() {
@@ -30,32 +39,18 @@ func (s *Server) Start() {
 			return
 		}
 
+		connID := 0
+
 		for {
-			conn, err := listener.Accept()
+			conn, err := listener.AcceptTCP()
 			if err != nil {
 				fmt.Println("Accept err:", err)
 				continue
 			}
 
-			// Basic display business.
-			go func() {
-				for {
-					buf := make([]byte, 512)
-					n, err := conn.Read(buf)
-					if err != nil {
-						fmt.Println("Read err:", err)
-						continue
-					}
-
-					fmt.Printf("Recv client: %s\n", buf)
-
-					_, err = conn.Write(buf[:n])
-					if err != nil {
-						fmt.Println("Write err:", err)
-						continue
-					}
-				}
-			}()
+			c := NewConn(conn, uint32(connID), callBack)
+			go c.Start()
+			connID++
 		}
 	}()
 }
